@@ -1,0 +1,40 @@
+Week 6:
+
+********************** Precision - Recall *************************
+1. Questions 1 to 5 refer to the following scenario:
+ Suppose a binary classifier produced the following confusion matrix.
+			Predicted Positive	Predicted Negative
+Actual Positive			5600			40
+Actual Negative			1900			2460
+
+What is the accuracy of this classifier? Round your answer to 2 decimal places.
+Ans:8060/10000 = 0.81
+
+2. Refer to the scenario presented in Question 1 to answer the following:
+(True/False) This classifier is better than random guessing.
+Ans: True.
+
+3. Refer to the scenario presented in Question 1 to answer the following:
+(True/False) This classifier is better than the majority class classifier.
+Ans: True.
+
+4. Refer to the scenario presented in Question 1 to answer the following:
+Which of the following points in the precision-recall space corresponds to this classifier?
+	precision = 5600/7500 = 0.75, recall = 5600/5640=0.99.
+Ans: 3.
+
+5. Refer to the scenario presented in Question 1 to answer the following:
+Which of the following best describes this classifier?
+Ans: optimistic.
+
+6. Suppose we are fitting a logistic regression model on a dataset where the vast majority of the data points are labeled as positive. To compensate for overfitting to the dominant class, we should.
+Ans: higher confidence level positive predictions.
+
+7. It is often the case that false positives and false negatives incur different costs. In situations where false negatives cost much more than false positives, we should
+Ans: lower confidence level positive predictions.
+
+8.  We are interested in reducing the number of false negatives. Which of the following metrics should we primarily look at?
+Ans: recall.
+
+9. Suppose we set the threshold for positive predictions at 0.9. What is the lowest score that is classified as positive? Round your answer to 2 decimal places.
+Ans: 2.20.

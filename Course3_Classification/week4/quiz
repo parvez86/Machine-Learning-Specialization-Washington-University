@@ -1,0 +1,75 @@
+Week4:
+*********************** quiz: Preventing Overfitting in Decision Trees ***************************
+1. (True/False) When learning decision trees, smaller depth USUALLY translates to lower training error.
+Ans: False.
+
+2. (True/False) If no two data points have the same input values, we can always learn a decision tree that achieves 0 training error.
+Ans: True.
+
+3. (True/False) If decision tree T1 has lower training error than decision tree T2, then T1 will always have better test error than T2.
+Ans: False.
+
+4.  Which of the following is true for decision trees?
+Ans: complexity increases with depth.
+
+5.  Pruning and early stopping in decision trees is used to
+Ans: combat overfitting.
+
+6.  Which of the following is NOT an early stopping method?
+Ans: stop when every possible split results in the same amount of error reduction.
+
+7.  Consider decision tree T1 learned with minimum node size parameter = 1000. Now consider decision tree T2 trained on the same dataset and parameters, except that the minimum node size parameter is now 100. Which of the following is always true?
+Ans: 
+depth T2 >= depth T1, tst_err T2<= tst_err T1.
+depth T2 >= depth T1, tr_err T2<= tr_err T1.
+# node T2>= # node T1, test error T2<= test error T1.
+# node T2>= # node T1, train error T2<= train error T1.
+test errorT2<= test error of T1, train error T2<= train error T1.
+
+8. Questions 8 to 11 refer to the following common scenario:
+Imagine we are training a decision tree, and we are at a node. Each data point is (x1, x2, y), where x1,x2 are features, and y is the label. The data at this node is:
+x1	x2	y
+0	1	+1
+1	0	+1
+0	1	+1
+1	1	-1
+What is the classification error at this node (assuming a majority class classifier)?
+Ans: 0.25. (single split)
+
+9. Refer to the scenario presented in Question 8.
+ If we split on x1, what is the classification error?
+Ans: 0.25
+
+10. Refer to the scenario presented in Question 8.
+If we split on x2, what is the classification error?
+Ans: 0.25.
+
+11. Refer to the scenario presented in Question 8.
+If our parameter for minimum gain in error reduction is 0.1, do we split or stop early?
+Ans: stop early.
+
+
+
+
+************** quiz: Handling Missing Data **********************
+1. (True/False) Skipping data points (i.e., skipping rows of the data) that have missing features only works when the learning algorithm we are using is decision tree learning.
+Ans: false.
+
+2. What are potential downsides of skipping features with missing values (i.e., skipping columns of the data) to handle missing data?
+Ans: features can degrade accuracy, feature exist in training set but if missing acccours in test set, this not applicable.
+
+3. (True/False) It’s always better to remove missing data points (i.e., rows) as opposed to removing missing features (i.e., columns).
+Ans: false.
+
+4. Consider a dataset with N training points. After imputing missing values, the number of data points in the data set is 
+Ans: N.
+
+5. Consider a dataset with D features. After imputing missing values, the number of features in the data set is
+Ans: D.
+
+6. Which of the following are always true when imputing missing data? Select all that apply.
+Ans: canbe used at prediction time,can be used in any classification algorithm.
+
+7.  Consider data that has binary features (i.e. the feature values are 0 or 1) with some feature values of some data points missing. When learning the best feature split at a node, how would we best modify the decision tree learning algorithm to handle data points with missing values for a feature?
+Ans: chose best CE(min) for branch.
+

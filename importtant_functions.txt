@@ -1,0 +1,1501 @@
+***********************From Regression ***************************
+
+1. convert data to numpy array:
+def get_numpy_data(data_sframe, features, output):
+    data_sframe['constant'] = 1 # this is how you add a constant column to an SFrame
+    # add the column 'constant' to the front of the features list so that we can extract it along with the others:
+    features = ['constant'] + features # this is how you combine two lists
+    # select the columns of data_SFrame given by the features list into the SFrame features_sframe (now including constant):
+    features_sframe = data_sframe[features]
+    # the following line will convert the features_SFrame into a numpy matrix:
+    feature_matrix = features_sframe.to_numpy()
+    # assign the column of data_sframe associated with the output to the SArray output_sarray
+    output_sarray = data_sframe[output]
+    # the following will convert the SArray into a numpy array by first converting it to a list
+    output_array = output_sarray.to_numpy()
+    return(feature_matrix, output_array)
+
+2. predicting output:
+def predict_output(feature_matrix, weights):
+    # assume feature_matrix is a numpy matrix containing the features as columns and weights is a corresponding numpy array
+    # create the predictions vector by using np.dot()
+    predictions = np.dot(feature_matrix, weights)
+    return(predictions)
+
+or
+
+def predict_output(features_train, output_train, features_query, k):
+    predictions = np.zeros(len(features_query))
+    for i in range(0, len(features_query)):
+        predictions[i] = predict_output_of_query(features_train, output_train, features_query[i], k)
+    nn_index = np.argmin(predictions)
+    return nn_index, predictions
+
+3. feature derivative:
+def feature_derivative(errors, feature):
+    # Assume that errors and feature are both numpy arrays of the same length (number of data points)
+    # compute twice the dot product of these vectors as 'derivative' and return the value
+    derivative = 2 * np.dot(errors, feature)   
+    return(derivative)
+
+4. RegGD:
+def regression_gradient_descent(feature_matrix, output, initial_weights, step_size, tolerance):
+    converged = False 
+    weights = np.array(initial_weights) # make sure it's a numpy array
+    while not converged:
+        # compute the predictions based on feature_matrix and weights using your predict_output() function
+        predictions = predict_output(feature_matrix, weights)
+        # compute the errors as predictions - output
+        errors = predictions - output
+        gradient_sum_squares = 0 # initialize the gradient sum of squares
+        # while we haven't reached the tolerance yet, update each feature's weight
+        for i in range(len(weights)): # loop over each weight
+            # Recall that feature_matrix[:, i] is the feature column associated with weights[i]
+            # compute the derivative for weight[i]:
+            derivative = feature_derivative(errors, feature_matrix[:, i])
+            # add the squared value of the derivative to the gradient sum of squares (for assessing convergence)
+            gradient_sum_squares = gradient_sum_squares + (derivative ** 2)
+            # subtract the step size times the derivative from the current weight
+            weights[i] = weights[i] - (step_size * derivative)
+        # compute the square-root of the gradient sum of squares to get the gradient magnitude:
+        gradient_magnitude = sqrt(gradient_sum_squares)
+        if gradient_magnitude < tolerance:
+            converged = True
+    return(weights)
+
+5. Plynomial SFrame func:
+def polynomial_sframe(feature, degree):
+    # assume that degree >= 1
+    # initialize the SFrame:
+    poly_sframe = turicreate.SFrame()
+    # and set poly_sframe['power_1'] equal to the passed feature
+    poly_sframe['power_1'] = feature
+    # first check if degree > 1
+    if degree > 1:
+        # then loop over the remaining degrees:
+        # range usually starts at 0 and stops at the endpoint-1. We want it to start at 2 and stop at degree
+        for power in range(2, degree+1): 
+            # first we'll give the column a name:
+            name = 'power_' + str(power)
+            # then assign poly_sframe[name] to the appropriate power of feature
+            poly_sframe[name] = feature.apply(lambda x: x**power)
+    return poly_sframe
+
+6. K-Fold CV:
+def k_fold_cross_validation(k, l2_penalty, data, output_name, features_list):
+    n = len(data)
+    avg = 0
+    for i in range(k):
+        i=4
+        start = (n*i)/k
+        end = (n*(i+1))/k-1
+        validation_data = data[start:end+1]
+        training_data = data[0:start-1].append(data[end+1:n])
+        model = turicreate.linear_regression.create(training_data, features= features_list, target= output_name, l2_penalty= l2_penalty, validation_set= None, verbose= False)
+        MSE = ((model.predict(validation_data) - validation_data[output_name])**2).sum()
+        avg = avg + MSE
+    return avg/k
+
+7. Plot predction:
+def plot_poly_predictions(data, model):
+    plot_data(data)
+
+    # Get the degree of the polynomial
+    deg = len(model.coefficients['value'])-1
+    
+    # Create 200 points in the x axis and compute the predicted value for each point
+    x_pred = turicreate.SFrame({'X1':[i/200.0 for i in range(200)]})
+    y_pred = model.predict(polynomial_features(x_pred,deg))
+    
+    # plot predictions
+    plt.plot(x_pred['X1'], y_pred, 'g-', label='degree ' + str(deg) + ' fit')
+    plt.legend(loc='upper left')
+    plt.axis([0,1,-1.5,2])
+
+8. Coefficinets:
+def print_coefficients(model):    
+    # Get the degree of the polynomial
+    deg = len(model.coefficients['value'])-1
+
+    # Get learned parameters as a list
+    w = list(model.coefficients['value'])
+
+    # Numpy has a nifty function to print out polynomials in a pretty way
+    # (We'll use it, but it needs the parameters in the reverse order)
+    print ('Learned polynomial for degree ' + str(deg) + ':')
+    w.reverse()
+    print (numpy.poly1d(w)
+
+9. Normalize featutres:
+def get_normalize_features(feature_matrix):
+    norms = np.linalg.norm(feature_matrix, axis= 0)
+    normalized_features = feature_matrix/norms
+    return normalized_features, norms
+
+10. for KNN:
+def predict_output_of_query(features_train, output_train, features_query, k):
+    NN_list = get_KNN(features_train, features_query, k)
+    price = output_train[NN_list]
+    return price.mean()
+
+
+****************** From Classification ***************************
+
+11. Remove Punctuation:
+import string 
+def remove_punctuation(text):
+    try: # python 2.x
+        text = text.translate(None, string.punctuation) 
+    except: # python 3.x
+        translator = text.maketrans('', '', string.punctuation)
+        text = text.translate(translator)
+    return text
+
+review_without_punctuation = products['review'].apply(remove_punctuation)
+products['word_count'] = turicreate.text_analytics.count_words(review_without_punctuation)
+
+12. Feature derivative with l2:
+def feature_derivative_with_L2(errors, feature, coefficient, l2_penalty, feature_is_constant): 
+    
+    # Compute the dot product of errors and feature
+    ## YOUR CODE HERE
+    derivative = np.dot(errors, feature)
+
+    # add L2 penalty term for any feature that isn't the intercept.
+    if not feature_is_constant: 
+        ## YOUR CODE HERE
+        derivative -= 2*l2_penalty*coefficient
+        
+    return derivative
+
+13. Loglikelihood with l2:
+def compute_log_likelihood_with_L2(feature_matrix, sentiment, coefficients, l2_penalty):
+    indicator = (sentiment==+1)
+    scores = np.dot(feature_matrix, coefficients)
+    
+    lp = np.sum((indicator-1)*scores - np.log(1. + np.exp(-scores))) - l2_penalty*np.sum(coefficients[1:]**2)
+    
+    return lp
+
+14. Rodge show():
+import matplotlib.pyplot as plt
+%matplotlib inline
+plt.rcParams['figure.figsize'] = 10, 6
+
+def make_coefficient_plot(table, positive_words, negative_words, l2_penalty_list):
+    cmap_positive = plt.get_cmap('Reds')
+    cmap_negative = plt.get_cmap('Blues')
+    
+    xx = l2_penalty_list
+    plt.plot(xx, [0.]*len(xx), '--', lw=1, color='k')
+    
+    table_positive_words = table.filter_by(column_name='word', values=positive_words)
+    table_negative_words = table.filter_by(column_name='word', values=negative_words)
+    del table_positive_words['word']
+    del table_negative_words['word']
+    
+    for i in range(len(positive_words)):
+        color = cmap_positive(0.8*((i+1)/(len(positive_words)*1.2)+0.15))
+        plt.plot(xx, table_positive_words[i:i+1].to_numpy().flatten(),
+                 '-', label=positive_words[i], linewidth=4.0, color=color)
+        
+    for i in range(len(negative_words)):
+        color = cmap_negative(0.8*((i+1)/(len(negative_words)*1.2)+0.15))
+        plt.plot(xx, table_negative_words[i:i+1].to_numpy().flatten(),
+                 '-', label=negative_words[i], linewidth=4.0, color=color)
+        
+    plt.legend(loc='best', ncol=3, prop={'size':16}, columnspacing=0.5)
+    plt.axis([1, 1e5, -1, 2])
+    plt.title('Coefficient path')
+    plt.xlabel('L2 penalty ($\lambda$)')
+    plt.ylabel('Coefficient value')
+    plt.xscale('log')
+    plt.rcParams.update({'font.size': 18})
+    plt.tight_layout()
+
+15. Classification accuracy:
+def get_classification_accuracy(feature_matrix, sentiment, coefficients):
+    scores = np.dot(feature_matrix, coefficients)
+    apply_threshold = np.vectorize(lambda x: 1. if x > 0  else -1.)
+    predictions = apply_threshold(scores)
+    
+    num_correct = (predictions == sentiment).sum()
+    accuracy = num_correct / len(feature_matrix)    
+    return accuracy
+
+16. Plotting :
+# Optional. Plot accuracy on training and validation sets over choice of L2 penalty.
+import matplotlib.pyplot as plt
+%matplotlib inline
+plt.rcParams['figure.figsize'] = 10, 6
+
+sorted_list = sorted(train_accuracy.items(), key=lambda x:x[0])
+plt.plot([p[0] for p in sorted_list], [p[1] for p in sorted_list], 'bo-', linewidth=4, label='Training accuracy')
+sorted_list = sorted(validation_accuracy.items(), key=lambda x:x[0])
+plt.plot([p[0] for p in sorted_list], [p[1] for p in sorted_list], 'ro-', linewidth=4, label='Validation accuracy')
+plt.xscale('symlog')
+plt.axis([0, 1e3, 0.78, 0.786])
+plt.legend(loc='lower left')
+plt.rcParams.update({'font.size': 18})
+plt.tight_layout
+
+# training vs test error
+import matplotlib.pyplot as plt
+%matplotlib inline
+def make_figure(dim, title, xlabel, ylabel, legend):
+    plt.rcParams['figure.figsize'] = dim
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    if legend is not None:
+        plt.legend(loc=legend, prop={'size':15})
+    plt.rcParams.update({'font.size': 16})
+    plt.tight_layout()
+
+17. for DT:
+def intermediate_node_num_mistakes(labels_in_node):
+    # Corner case: If labels_in_node is empty, return 0
+    if len(labels_in_node) == 0:
+        return 0
+    
+    # Count the number of 1's (safe loans)
+    ## YOUR CODE HERE
+    num_safe_loans = len(labels_in_node[labels_in_node==1])
+    
+    
+    # Count the number of -1's (risky loans)
+    ## YOUR CODE HERE
+    num_risky_loans = len(labels_in_node[labels_in_node==-1])
+        
+    # Return the number of mistakes that the majority classifier makes.
+    ## YOUR CODE HERE
+    return num_risky_loans if num_safe_loans>= num_risky_loans else  num_safe_loans
+  
+
+def best_splitting_feature(data, features, target):
+    
+    best_feature = None # Keep track of the best feature 
+    best_error = 10     # Keep track of the best error so far 
+    # Note: Since error is always <= 1, we should intialize it with something larger than 1.
+
+    # Convert to float to make sure error gets computed correctly.
+    num_data_points = float(len(data))  
+    
+    # Loop through each feature to consider splitting on that feature
+    for feature in features:
+        
+        # The left split will have all data points where the feature value is 0
+        left_split = data[data[feature] == 0]
+        
+        # The right split will have all data points where the feature value is 1
+        ## YOUR CODE HERE
+        right_split =  data[data[feature]==1]
+            
+        # Calculate the number of misclassified examples in the left split.
+        # Remember that we implemented a function for this! (It was called intermediate_node_num_mistakes)
+        # YOUR CODE HERE
+        left_mistakes =  intermediate_node_num_mistakes(left_split[target])
+
+        # Calculate the number of misclassified examples in the right split.
+        ## YOUR CODE HERE
+        right_mistakes = intermediate_node_num_mistakes(right_split[target])
+            
+        # Compute the classification error of this split.
+        # Error = (# of mistakes (left) + # of mistakes (right)) / (# of data points)
+        ## YOUR CODE HERE
+        error = (left_mistakes + right_mistakes)/num_data_points
+        # If this is the best error we have found so far, store the feature as best_feature and the error as best_error
+        ## YOUR CODE HERE
+        if error < best_error:
+            best_error = error 
+            best_feature = feature
+    return best_feature # Return the best feature we found
+
+def create_leaf(target_values):
+    
+    # Create a leaf node
+    leaf = {'splitting_feature' : None,
+            'left' : None,
+            'right' : None,
+            'is_leaf': True }   ## YOUR CODE HERE
+    
+    # Count the number of data points that are +1 and -1 in this node.
+    num_ones = len(target_values[target_values == +1])
+    num_minus_ones = len(target_values[target_values == -1])
+    
+    # For the leaf node, set the prediction to be the majority class.
+    # Store the predicted class (1 or -1) in leaf['prediction']
+    if num_ones > num_minus_ones:
+        leaf['prediction'] =  1        ## YOUR CODE HERE
+    else:
+        leaf['prediction'] =  -1        ## YOUR CODE HERE
+        
+    # Return the leaf node        
+    return leaf 
+
+def decision_tree_create(data, features, target, current_depth = 0, max_depth = 10):
+    remaining_features = features[:] # Make a copy of the features.
+    
+    target_values = data[target]
+    print("--------------------------------------------------------------------")
+    print("Subtree, depth = %s (%s data points)." % (current_depth, len(target_values)))
+
+
+    # Stopping condition 1
+    # (Check if there are mistakes at current node.
+    # Recall you wrote a function intermediate_node_num_mistakes to compute this.)
+    if  intermediate_node_num_mistakes(target_values)== 0:  ## YOUR CODE HERE
+        print("Stopping condition 1 reached.")
+        # If not mistakes at current node, make current node a leaf node
+        return create_leaf(target_values)
+    
+    # Stopping condition 2 (check if there are remaining features to consider splitting on)
+    if remaining_features == None :   ## YOUR CODE HERE
+        print("Stopping condition 2 reached.")
+        # If there are no remaining features to consider, make current node a leaf node
+        return create_leaf(target_values)    
+    
+    # Additional stopping condition (limit tree depth)
+    if current_depth >= max_depth:  ## YOUR CODE HERE
+        print("Reached maximum depth. Stopping for now.")
+        # If the max tree depth has been reached, make current node a leaf node
+        return create_leaf(target_values)
+
+    # Find the best splitting feature (recall the function best_splitting_feature implemented above)
+    ## YOUR CODE HERE
+
+    splitting_feature = best_splitting_feature(data, remaining_features, target)
+    # Split on the best feature that we found. 
+    left_split = data[data[splitting_feature] == 0]
+    right_split = data[data[splitting_feature] == 1]      ## YOUR CODE HERE
+    remaining_features.remove(splitting_feature)
+    print("Split on feature %s. (%s, %s)" % (\
+                      splitting_feature, len(left_split), len(right_split)))
+    
+    # Create a leaf node if the split is "perfect"
+    if len(left_split) == len(data):
+        print("Creating leaf node.")
+        return create_leaf(left_split[target])
+    if len(right_split) == len(data):
+        print("Creating leaf node.")
+        ## YOUR CODE HERE
+        return create_leaf(right_split[target])
+        
+    # Repeat (recurse) on left and right subtrees
+    left_tree = decision_tree_create(left_split, remaining_features, target, current_depth + 1, max_depth)        
+    ## YOUR CODE HERE
+    right_tree = decision_tree_create(right_split, remaining_features, target, current_depth + 1, max_depth)        
+    ## YOUR CODE HERE
+
+    return {'is_leaf'          : False, 
+            'prediction'       : None,
+            'splitting_feature': splitting_feature,
+            'left'             : left_tree, 
+            'right'            : right_tree}
+
+def count_nodes(tree):
+    if tree['is_leaf']:
+        return 1
+    return 1 + count_nodes(tree['left']) + count_nodes(tree['right'])
+
+def classify(tree, x, annotate = False):   
+    # if the node is a leaf node.
+    if tree['is_leaf']:
+        if annotate: 
+            print("At leaf, predicting %s" % tree['prediction'])
+        return tree['prediction'] 
+    else:
+        # split on feature.
+        split_feature_value = x[tree['splitting_feature']]
+        if annotate: 
+            print("Split on %s = %s" % (tree['splitting_feature'], split_feature_value))
+        if split_feature_value == 0:
+            return classify(tree['left'], x, annotate)
+        else:
+               ### YOUR CODE HERE
+            return classify(tree['right'], x, annotate)
+
+def print_stump(tree, name = 'root'):
+    split_name = tree['splitting_feature'] # split_name is something like 'term. 36 months'
+    if split_name is None:
+        print("(leaf, label: %s)" % tree['prediction'])
+        return None
+    split_feature, split_value = split_name.split('.')
+    print('                       %s' % name)
+    print('         |---------------|----------------|')
+    print('         |                                |')
+    print('         |                                |')
+    print('         |                                |')
+    print('  [{0} == 0]               [{0} == 1]    '.format(split_name))
+    print('         |                                |')
+    print('         |                                |')
+    print('         |                                |')
+    print('    (%s)                         (%s)' \
+        % (('leaf, label: ' + str(tree['left']['prediction']) if tree['left']['is_leaf'] else 'subtree'),
+           ('leaf, label: ' + str(tree['right']['prediction']) if tree['right']['is_leaf'] else 'subtree')))
+
+def count_leaves(tree):
+    if tree['is_leaf']:
+        return 1
+    return count_leaves(tree['left']) + count_leaves(tree['right'])
+
+def intermediate_node_weighted_mistakes(labels_in_node, data_weights):
+    # Sum the weights of all entries with label +1
+    total_weight_positive = sum(data_weights[labels_in_node == +1])
+    
+    # Weight of mistakes for predicting all -1's is equal to the sum above
+    ### YOUR CODE HERE
+    weighted_mistakes_all_negative = total_weight_positive
+    # sum(data_weights[labels_in_node == +1])
+    
+    # Sum the weights of all entries with label -1
+    ### YOUR CODE HERE
+    total_weight_negative = sum(data_weights[labels_in_node == -1])
+    
+    # Weight of mistakes for predicting all +1's is equal to the sum above
+    ### YOUR CODE HERE
+    weighted_mistakes_all_positive = total_weight_negative
+    #sum(data_weights[labels_in_node == -1])
+    
+    # Return the tuple (weight, class_label) representing the lower of the two weights
+    #    class_label should be an integer of value +1 or -1.
+    # If the two weights are identical, return (weighted_mistakes_all_positive,+1)
+    ### YOUR CODE HERE
+    return (weighted_mistakes_all_negative, -1) if weighted_mistakes_all_positive > weighted_mistakes_all_negative else (weighted_mistakes_all_positive, +1)
+    
+
+18. Count accuracy paramter(FP/TP):
+def get_desired_evaluation_parameter_number(pred_data, data, pred_val, data_val):
+    count= 0
+    for i in range(0, len(pred_data)):
+        if pred_data[i]==pred_val and data[i]['safe_loans']==data_val: count+=1
+    return count
+
+19. Stochastic GD:
+def compute_avg_log_likelihood(feature_matrix, sentiment, coefficients):
+    
+    indicator = (sentiment==+1)
+    scores = np.dot(feature_matrix, coefficients)
+    logexp = np.log(1. + np.exp(-scores))
+    
+    # Simple check to prevent overflow
+    mask = np.isinf(logexp)
+    logexp[mask] = -scores[mask]
+    
+    lp = np.sum((indicator-1)*scores - logexp)/len(feature_matrix)
+    
+    return lp
+
+from math import sqrt
+def logistic_regression_SG(feature_matrix, sentiment, initial_coefficients, step_size, batch_size, max_iter):
+    log_likelihood_all = []
+    
+    # make sure it's a numpy array
+    coefficients = np.array(initial_coefficients)
+    # set seed=1 to produce consistent results
+    np.random.seed(seed=1)
+    # Shuffle the data before starting
+    permutation = np.random.permutation(len(feature_matrix))
+    feature_matrix = feature_matrix[permutation,:]
+    sentiment = sentiment[permutation]
+    
+    i = 0 # index of current batch
+    # Do a linear scan over data
+    for itr in range(max_iter):
+        # Predict P(y_i = +1|x_i,w) using your predict_probability() function
+        # Make sure to slice the i-th row of feature_matrix with [i:i+batch_size,:]
+        ### YOUR CODE HERE
+        predictions = predict_probability(feature_matrix[i:i+batch_size,:], coefficients)
+        
+        # Compute indicator value for (y_i = +1)
+        # Make sure to slice the i-th entry with [i:i+batch_size]
+        ### YOUR CODE HERE
+        indicator = (sentiment[i:i+batch_size]== +1)
+        
+        # Compute the errors as indicator - predictions
+        errors = indicator - predictions
+        for j in range(len(coefficients)): # loop over each coefficient
+            # Recall that feature_matrix[:,j] is the feature column associated with coefficients[j]
+            # Compute the derivative for coefficients[j] and save it to derivative.
+            # Make sure to slice the i-th row of feature_matrix with [i:i+batch_size,j]
+            ### YOUR CODE HERE
+            derivative = feature_derivative(errors, feature_matrix[i:i+batch_size, j])
+            
+            # compute the product of the step size, the derivative, and the **normalization constant** (1./batch_size)
+            ### YOUR CODE HERE
+            coefficients[j] += (1./batch_size)* step_size * derivative
+        
+        # Checking whether log likelihood is increasing
+        # Print the log likelihood over the *current batch*
+        lp = compute_avg_log_likelihood(feature_matrix[i:i+batch_size,:], sentiment[i:i+batch_size],
+                                        coefficients)
+        log_likelihood_all.append(lp)
+        if itr <= 15 or (itr <= 1000 and itr % 100 == 0) or (itr <= 10000 and itr % 1000 == 0) \
+         or itr % 10000 == 0 or itr == max_iter-1:
+            data_size = len(feature_matrix)
+            print('Iteration %*d: Average log likelihood (of data points in batch [%0*d:%0*d]) = %.8f' % \
+                (int(np.ceil(np.log10(max_iter))), itr, \
+                 int(np.ceil(np.log10(data_size))), i, \
+                 int(np.ceil(np.log10(data_size))), i+batch_size, lp))
+        
+        # if we made a complete pass over data, shuffle and restart
+        i += batch_size
+        if i+batch_size > len(feature_matrix):
+            permutation = np.random.permutation(len(feature_matrix))
+            feature_matrix = feature_matrix[permutation,:]
+            sentiment = sentiment[permutation]
+            i = 0
+                
+    # We return the list of log likelihoods for plotting purposes.
+    return coefficients, log_likelihood_all
+
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+def make_plot(log_likelihood_all, len_data, batch_size, smoothing_window=1, label=''):
+    plt.rcParams.update({'figure.figsize': (9,5)})
+    log_likelihood_all_ma = np.convolve(np.array(log_likelihood_all), \
+                                        np.ones((smoothing_window,))/smoothing_window, mode='valid')
+    plt.plot(np.array(range(smoothing_window-1, len(log_likelihood_all)))*float(batch_size)/len_data,
+             log_likelihood_all_ma, linewidth=4.0, label=label)
+    plt.rcParams.update({'font.size': 16})
+    plt.tight_layout()
+    plt.xlabel('# of passes over data')
+    plt.ylabel('Average log likelihood per data point')
+    plt.legend(loc='lower right', prop={'size':14})
+
+
+*********************** Clustering & retreival *************************************
+
+20. Get top words:
+def top_words(name):
+    """
+    Get a table of the most frequent words in the given person's wikipedia page.
+    """
+    row = wiki[wiki['name'] == name]
+    word_count_table = row[['word_count']].stack('word_count', new_column_name=['word','count'])
+    return word_count_table.sort('count', ascending=False)
+
+def top_words_tf_idf(name):
+    row = wiki[wiki['name'] == name]
+    word_count_table = row[['tf_idf']].stack('tf_idf', new_column_name=['word','weight'])
+    return word_count_table.sort('weight', ascending=False)
+
+
+21. SFrmae -> Scipy:
+def sframe_to_scipy(x, column_name):
+    '''
+    Convert a dictionary column of an SFrame into a sparse matrix format where
+    each (row_id, column_id, value) triple corresponds to the value of
+    x[row_id][column_id], where column_id is a key in the dictionary.
+       
+    Example
+    >>> sparse_matrix, map_key_to_index = sframe_to_scipy(sframe, column_name)
+    '''
+    assert type(x[column_name][0]) == dict, \
+        'The chosen column must be dict type, representing sparse data.'
+    
+    # Stack will transform x to have a row for each unique (row, key) pair.
+    x = x.stack(column_name, ['feature', 'value'])
+    
+    # Map feature words to integers 
+    unique_words = sorted(x['feature'].unique())
+    mapping = {word:i for i, word in enumerate(unique_words)}
+    x['feature_id'] = x['feature'].apply(lambda x: mapping[x])
+    
+    # Create numpy arrays that contain the data for the sparse matrix.
+    row_id = np.array(x['id'])
+    col_id = np.array(x['feature_id'])
+    data = np.array(x['value'])
+    
+    width = x['id'].max() + 1
+    height = x['feature_id'].max() + 1
+    
+    # Create a sparse matrix.
+    mat = csr_matrix((data, (row_id, col_id)), shape=(width, height))
+    return mat, mapping
+
+22. Locality Sensitive Hashing:
+def train_lsh(data, n_vectors, seed=None):    
+    if seed is not None:
+        np.random.seed(seed)
+
+    dim = data.shape[1]
+    random_vectors = generate_random_vectors(dim, n_vectors)  
+
+    # Partition data points into bins,
+    # and encode bin index bits into integers
+    bin_indices_bits = data.dot(random_vectors) >= 0
+    powers_of_two = 1 << np.arange(n_vectors - 1, -1, step=-1)
+    bin_indices = bin_indices_bits.dot(powers_of_two)
+
+    # Update `table` so that `table[i]` is the list of document ids with bin index equal to i
+    table = defaultdict(list)
+    for idx, bin_index in enumerate(bin_indices):
+        # Fetch the list of document ids associated with the bin and add the document id to the end.
+        # data_index: document ids
+        # append() will add a list of document ids to table dict() with key as bin_index
+        ...   # YOUR CODE HERE
+    
+    # Note that we're storing the bin_indices here
+    # so we can do some ad-hoc checking with it,
+    # this isn't actually required
+    model = {'data': data,
+             'table': table,
+             'random_vectors': random_vectors,
+             'bin_indices': bin_indices,
+             'bin_indices_bits': bin_indices_bits}
+    return model
+
+23. Get similar items:
+# This function will help us get similar items, given the id
+def get_similarity_items(X_tfidf, item_id, topn=5):
+    """
+    Get the top similar items for a given item id.
+    The similarity measure here is based on cosine distance.
+    """
+    query = X_tfidf[item_id]
+    scores = X_tfidf.dot(query.T).toarray().ravel()
+    best = np.argpartition(scores, -topn)[-topn:]
+    similar_items = sorted(zip(best, scores[best]), key=lambda x: -x[1])
+    similar_item_ids = [similar_item for similar_item, _ in similar_items]
+    print("Similar items to id: {}".format(item_id))
+    for _id in similar_item_ids:
+        print(wiki[_id]['name'])
+    print('\n')
+    return similar_item_ids
+
+24. Search nearbu bins:
+ef search_nearby_bins(query_bin_bits, table, search_radius=2, initial_candidates=set()):
+    """
+    For a given query vector and trained LSH model, return all candidate neighbors for
+    the query among all bins within the given search radius.
+    
+    Example usage
+    -------------
+    >>> model = train_lsh(corpus, num_vector=16, seed=143)
+    >>> q = model['bin_index_bits'][0]  # vector for the first document
+  
+    >>> candidates = search_nearby_bins(q, model['table'])
+    """
+    num_vector = len(query_bin_bits)
+    powers_of_two = 1 << np.arange(num_vector-1, -1, -1)
+    
+    # Allow the user to provide an initial set of candidates.
+    candidate_set = copy(initial_candidates)
+    
+    for different_bits in combinations(range(num_vector), search_radius):       
+        # Flip the bits (n_1,n_2,...,n_r) of the query bin to produce a new bit vector.
+        ## Hint: you can iterate over a tuple like a list
+        alternate_bits = copy(query_bin_bits)
+        for i in different_bits:
+            alternate_bits[i] ... # YOUR CODE HERE 
+        
+        # Convert the new bit vector to an integer index
+        nearby_bin = alternate_bits.dot(powers_of_two)
+        
+        # Fetch the list of documents belonging to the bin indexed by the new bit vector.
+        # Then add those documents to candidate_set
+        # Make sure that the bin exists in the table!
+        # Hint: update() method for sets lets you add an entire list to the set
+        if nearby_bin in table:
+            more_docs = table[nearby_bin] # Get all document_ids of the bin
+            ... # YOUR CODE HERE: Update candidate_set with the documents in this bin.
+            
+    return candidate_set
+
+25. Query:
+def query(vec, model, k, max_search_radius):
+  
+    data = model['data']
+    table = model['table']
+    random_vectors = model['random_vectors']
+    num_vector = random_vectors.shape[1]
+    
+    
+    # Compute bin index for the query vector, in bit representation.
+    bin_index_bits = (vec.dot(random_vectors) >= 0).flatten()
+    
+    # Search nearby bins and collect candidates
+    candidate_set = set()
+    for search_radius in range(max_search_radius+1):
+        candidate_set = search_nearby_bins(bin_index_bits, table, search_radius, initial_candidates=candidate_set)
+    
+    # Sort candidates by their true distances from the query
+    nearest_neighbors = turicreate.SFrame({'id':candidate_set})
+    candidates = data[np.array(list(candidate_set)),:]
+    nearest_neighbors['distance'] = pairwise_distances(candidates, vec, metric='cosine').flatten()
+    
+    return nearest_neighbors.topk('distance', k, reverse=True), len(candidate_set)
+
+%%time
+num_candidates_history = []
+query_time_history = []
+max_distance_from_query_history = []
+min_distance_from_query_history = []
+average_distance_from_query_history = []
+
+for max_search_radius in range(17):
+    start=time.time()
+    result, num_candidates = query(corpus[35817,:], model, k=10,
+                                   max_search_radius=max_search_radius)
+    end=time.time()
+    query_time = end-start
+    
+    print('Radius:', max_search_radius)
+    print(result.join(wiki[['id', 'name']], on='id').sort('distance'))
+    
+    average_distance_from_query = result['distance'][1:].mean()
+    max_distance_from_query = result['distance'][1:].max()
+    min_distance_from_query = result['distance'][1:].min()
+    
+    num_candidates_history.append(num_candidates)
+    query_time_history.append(query_time)
+    average_distance_from_query_history.append(average_distance_from_query)
+    max_distance_from_query_history.append(max_distance_from_query)
+    min_distance_from_query_history.append(min_distance_from_query)
+
+
+26. Brute-force query:
+def brute_force_query(vec, data, k):
+    num_data_points = data.shape[0]
+    
+    # Compute distances for ALL data points in training set
+    nearest_neighbors = turicreate.SFrame({'id':range(num_data_points)})
+    nearest_neighbors['distance'] = pairwise_distances(data, vec, metric='cosine').flatten()
+    
+    return nearest_neighbors.topk('distance', k, reverse=True)
+
+27. K-Means:
+def get_initial_centroids(data, k, seed=None):
+    '''Randomly choose k data points as initial centroids'''
+    if seed is not None: # useful for obtaining consistent results
+        np.random.seed(seed)
+    n = data.shape[0] # number of data points
+        
+    # Pick K indices from range [0, N).
+    rand_indices = np.random.randint(0, n, k)
+    
+    # Keep centroids as dense format, as many entries will be nonzero due to averaging.
+    # As long as at least one document in a cluster contains a word,
+    # it will carry a nonzero weight in the TF-IDF vector of the centroid.
+    centroids = data[rand_indices,:].toarray()
+    
+    return centroids
+
+
+from sklearn.metrics import pairwise_distances
+
+# Get the TF-IDF vectors for documents 100 through 102.
+queries = tf_idf[100:102,:]
+
+# Compute pairwise distances from every data point to each query vector.
+dist = pairwise_distances(tf_idf, queries, metric='euclidean')
+
+print(dist)
+
+
+def revise_centroids(data, k, cluster_assignment):
+    new_centroids = []
+    for i in range(k):
+        # Select all data points that belong to cluster i. Fill in the blank (RHS only)
+        member_data_points = data[cluster_assignment==i]   # YOUR CODE HERE
+        # Compute the mean of the data points. Fill in the blank (RHS only)
+        centroid = np.mean(member_data_points, axis= 0)   # YOUR CODE HERE
+        
+        # Convert numpy.matrix type to numpy.ndarray type
+        centroid = centroid.A1
+        new_centroids.append(centroid)
+    new_centroids = np.array(new_centroids)
+    
+    return new_centroids
+
+def compute_heterogeneity(data, k, centroids, cluster_assignment):
+    
+    heterogeneity = 0.0
+    for i in range(k):
+        
+        # Select all data points that belong to cluster i. Fill in the blank (RHS only)
+        member_data_points = data[cluster_assignment==i, :]
+        
+        if member_data_points.shape[0] > 0: # check if i-th cluster is non-empty
+            # Compute distances from centroid to data points (RHS only)
+            distances = pairwise_distances(member_data_points, [centroids[i]], metric='euclidean')
+            squared_distances = distances**2
+            heterogeneity += np.sum(squared_distances)
+        
+    return heterogeneity
+
+def kmeans(data, k, initial_centroids, maxiter, record_heterogeneity=None, verbose=False):
+    '''This function runs k-means on given data and initial set of centroids.
+       maxiter: maximum number of iterations to run.
+       record_heterogeneity: (optional) a list, to store the history of heterogeneity as function of iterations
+                             if None, do not store the history.
+       verbose: if True, print how many data points changed their cluster labels in each iteration'''
+    centroids = initial_centroids[:]
+    prev_cluster_assignment = None
+    
+    for itr in range(maxiter):        
+        if verbose:
+            print(itr)
+        
+        # 1. Make cluster assignments using nearest centroids
+        # YOUR CODE HERE
+        cluster_assignment = assign_clusters(data, centroids)
+            
+        # 2. Compute a new centroid for each of the k clusters, averaging all data points assigned to that cluster.
+        # YOUR CODE HERE
+        centroids = revise_centroids(data, k , cluster_assignment)
+            
+        # Check for convergence: if none of the assignments changed, stop
+        if prev_cluster_assignment is not None and \
+          (prev_cluster_assignment==cluster_assignment).all():
+            break
+        
+        # Print number of new assignments 
+        if prev_cluster_assignment is not None:
+            num_changed = np.sum(prev_cluster_assignment!=cluster_assignment)
+            if verbose:
+                print('    {0:5d} elements changed their cluster assignment.'.format(num_changed))   
+        
+        # Record heterogeneity convergence metric
+        if record_heterogeneity is not None:
+            # YOUR CODE HERE
+            score = compute_heterogeneity(data, k, centroids, cluster_assignment)
+            record_heterogeneity.append(score)
+        
+        prev_cluster_assignment = cluster_assignment[:]
+        
+    return centroids, cluster_assignment
+
+def plot_heterogeneity(heterogeneity, k):
+    plt.figure(figsize=(7,4))
+    plt.plot(heterogeneity, linewidth=4)
+    plt.xlabel('# Iterations')
+    plt.ylabel('Heterogeneity')
+    plt.title('Heterogeneity of clustering over time, K={0:d}'.format(k))
+    plt.rcParams.update({'font.size': 16})
+    plt.tight_layout()
+
+
+28. K-Means++:
+
+def smart_initialize(data, k, seed=None):
+    '''Use k-means++ to initialize a good set of centroids'''
+    if seed is not None: # useful for obtaining consistent results
+        np.random.seed(seed)
+    centroids = np.zeros((k, data.shape[1]))
+    
+    # Randomly choose the first centroid.
+    # Since we have no prior knowledge, choose uniformly at random
+    idx = np.random.randint(data.shape[0])
+    centroids[0] = data[idx,:].toarray()
+    # Compute distances from the first centroid chosen to all the other data points
+    squared_distances = pairwise_distances(data, centroids[0:1], metric='euclidean').flatten()**2
+    
+    for i in range(1, k):
+        # Choose the next centroid randomly, so that the probability for each data point to be chosen
+        # is directly proportional to its squared distance from the nearest centroid.
+        # Roughtly speaking, a new centroid should be as far as from ohter centroids as possible.
+        idx = np.random.choice(data.shape[0], 1, p=squared_distances/sum(squared_distances))
+        centroids[i] = data[idx,:].toarray()
+        # Now compute distances from the centroids to all data points
+        squared_distances = np.min(pairwise_distances(data, centroids[0:i+1], metric='euclidean')**2,axis=1)
+    
+    return centroids
+
+def kmeans_multiple_runs(data, k, maxiter, num_runs, seed_list=None, verbose=False):
+    heterogeneity = {}
+    
+    min_heterogeneity_achieved = float('inf')
+    best_seed = None
+    final_centroids = None
+    final_cluster_assignment = None
+    
+    for i in range(num_runs):
+        
+        # Use UTC time if no seeds are provided 
+        if seed_list is not None: 
+            seed = seed_list[i]
+            np.random.seed(seed)
+        else: 
+            seed = int(time.time())
+            np.random.seed(seed)
+        
+        # Use k-means++ initialization
+        # YOUR CODE HERE
+        initial_centroids = smart_initialize(data, k, seed)
+        
+        # Run k-means
+        # YOUR CODE HERE
+        centroids, cluster_assignment = kmeans(data, k, initial_centroids, maxiter=400,
+                                           record_heterogeneity=None, verbose=False)
+        
+        # To save time, compute heterogeneity only once in the end
+        # YOUR CODE HERE
+        heterogeneity[seed] = compute_heterogeneity(data, k, centroids, cluster_assignment)
+        
+        if verbose:
+            print('seed={0:06d}, heterogeneity={1:.5f}'.format(seed, heterogeneity[seed]))
+            sys.stdout.flush()
+        
+        # if current measurement of heterogeneity is lower than previously seen,
+        # update the minimum record of heterogeneity.
+        if heterogeneity[seed] < min_heterogeneity_achieved:
+            min_heterogeneity_achieved = heterogeneity[seed]
+            best_seed = seed
+            final_centroids = centroids
+            final_cluster_assignment = cluster_assignment
+    
+    # Return the centroids and cluster assignments that minimize heterogeneity.
+    return final_centroids, final_cluster_assignment
+
+
+%%time
+import numpy as np 
+
+def plot_k_vs_heterogeneity(k_values, heterogeneity_values):
+    plt.figure(figsize=(7,4))
+    plt.plot(k_values, heterogeneity_values, linewidth=4)
+    plt.xlabel('K')
+    plt.ylabel('Heterogeneity')
+    plt.title('K vs. Heterogeneity')
+    plt.rcParams.update({'font.size': 16})
+    plt.tight_layout()
+
+centroids = {}
+cluster_assignment = {}
+heterogeneity_values = []
+k_list = [2, 10, 25, 50, 100]
+seed_list = [0]
+# Uncomment the following line to run the plot with all the seeds (it may take about an hour to finish).
+#seed_list = [0, 20000, 40000, 60000, 80000, 100000, 120000]
+
+for k in k_list:
+    heterogeneity = []
+    centroids[k], cluster_assignment[k] = kmeans_multiple_runs(tf_idf, k, maxiter=400,
+                                                               num_runs=len(seed_list),                                                               seed_list=seed_list,
+                                                               verbose=True)
+    score = compute_heterogeneity(tf_idf, k, centroids[k], cluster_assignment[k])
+    heterogeneity_values.append(score)
+
+def visualize_document_clusters(wiki, tf_idf, centroids, cluster_assignment, k, map_word_to_index, display_content=True):
+    '''wiki: original dataframe
+       tf_idf: data matrix, sparse matrix format
+       map_index_to_word: SFrame specifying the mapping betweeen words and column indices
+       display_content: if True, display 8 nearest neighbors of each centroid'''
+    map_index_to_word =  {v:k for k,v in map_word_to_index.items()}
+    print('==========================================================')
+    # Visualize each cluster c
+    for c in range(k):
+        # Cluster heading
+        print('Cluster {0:d}    '.format(c)),
+        # Print top 5 words with largest TF-IDF weights in the cluster
+        idx = centroids[c].argsort()[::-1]
+        for i in range(5): # Print each word along with the TF-IDF weight
+            print('{0:s}:{1:.3f}'.format(map_index_to_word[idx[i]], centroids[c][idx[i]])),
+        print('')
+        
+        if display_content:
+            # Compute distances from the centroid to all data points in the cluster,
+            # and compute nearest neighbors of the centroids within the cluster.
+            distances = pairwise_distances(tf_idf, centroids[c].reshape(1, -1), metric='euclidean').flatten()
+            distances[cluster_assignment!=c] = float('inf') # remove non-members from consideration
+            
+            nearest_neighbors = distances.argsort()
+            
+            # For 8 nearest neighbors, print the title as well as first 180 characters of text.
+            # Wrap the text at 80-character mark.
+            for i in range(8):
+                text = ' '.join(wiki[nearest_neighbors[i]]['text'].split(None, 25)[0:25])
+                print('\n* {0:50s} {1:.5f}\n  {2:s}\n  {3:s}'.format(wiki[nearest_neighbors[i]]['name'],
+                    distances[nearest_neighbors[i]], text[:90], text[90:180] if len(text) > 90 else ''))
+        print('==========================================================')
+
+
+
+
+29: Expectation Maximization(EM) with guassian:
+def log_sum_exp(Z):
+    """ Compute log(\sum_i exp(Z_i)) for some array Z."""
+    return np.max(Z) + np.log(np.sum(np.exp(Z - np.max(Z))))
+
+def loglikelihood(data, weights, means, covs):
+    """ Compute the loglikelihood of the data for a Gaussian mixture model with the given parameters. """
+    num_clusters = len(means)
+    num_dim = len(data[0])
+    
+    ll = 0
+    for d in data:
+        
+        Z = np.zeros(num_clusters)
+        for k in range(num_clusters):
+            
+            # Compute (x-mu)^T * Sigma^{-1} * (x-mu)
+            delta = np.array(d) - means[k]
+            exponent_term = np.dot(delta.T, np.dot(np.linalg.inv(covs[k]), delta))
+            
+            # Compute loglikelihood contribution for this data point and this cluster
+            Z[k] += np.log(weights[k])
+            Z[k] -= 1/2. * (num_dim * np.log(2*np.pi) + np.log(np.linalg.det(covs[k])) + exponent_term)
+            
+        # Increment loglikelihood contribution of this data point across all clusters
+        ll += log_sum_exp(Z)
+        
+    return ll
+
+def compute_responsibilities(data, weights, means, covariances):
+    '''E-step: compute responsibilities, given the current parameters'''
+    num_data = len(data)
+    num_clusters = len(means)
+    resp = np.zeros((num_data, num_clusters))
+    
+    # Update resp matrix so that resp[i,k] is the responsibility of cluster k for data point i.
+    # Hint: To compute likelihood of seeing data point i given cluster k, use multivariate_normal.pdf.
+    for i in range(num_data):
+        for k in range(num_clusters):
+            # YOUR CODE HERE
+            resp[i, k] = weights[k] * multivariate_normal.pdf(data[i], means[k], covariances[k])
+
+    # Add up responsibilities over each data point and normalize
+    row_sums = resp.sum(axis=1)[:, np.newaxis]
+    resp = resp / row_sums
+
+    return resp
+
+def compute_soft_counts(resp):
+    # Compute the total responsibility assigned to each cluster, which will be useful when 
+    # implementing M-steps below. In the lectures this is called N^{soft}
+    counts = np.sum(resp, axis=0)
+    return counts
+
+def compute_soft_counts(resp):
+    # Compute the total responsibility assigned to each cluster, which will be useful when 
+    # implementing M-steps below. In the lectures this is called N^{soft}
+    counts = np.sum(resp, axis=0)
+    return counts
+
+resp = compute_responsibilities(data=np.array([[1.,2.],[-1.,-2.],[0,0]]), weights=np.array([0.3, 0.7]),
+                                means=[np.array([0.,0.]), np.array([1.,1.])],
+                                covariances=[np.array([[1.5, 0.],[0.,2.5]]), np.array([[1.,1.],[1.,2.]])])
+counts = compute_soft_counts(resp)
+weights = compute_weights(counts)
+
+print(counts)
+print(weights)
+
+if np.allclose(weights, [0.27904865942515705, 0.720951340574843]):
+    print('Checkpoint passed!')
+else:
+    print('Check your code again.')
+
+def compute_means(data, resp, counts):
+    num_clusters = len(counts)
+    num_data = len(data)
+    means = [np.zeros(len(data[0]))] * num_clusters
+    
+    for k in range(num_clusters):
+        # Update means for cluster k using the M-step update rule for the mean variables.
+        # This will assign the variable means[k] to be our estimate for \hat{\mu}_k.
+        weighted_sum = 0.
+        for i in range(num_data):
+            # YOUR CODE HERE
+            weighted_sum += resp[i,k] * data[i]
+        # YOUR CODE HERE
+        means[k] = weighted_sum/counts[k]
+
+    return means
+
+data_tmp = np.array([[1.,2.],[-1.,-2.]])
+resp = compute_responsibilities(data=data_tmp, weights=np.array([0.3, 0.7]),
+                                means=[np.array([0.,0.]), np.array([1.,1.])],
+                                covariances=[np.array([[1.5, 0.],[0.,2.5]]), np.array([[1.,1.],[1.,2.]])])
+counts = compute_soft_counts(resp)
+means = compute_means(data_tmp, resp, counts)
+
+if np.allclose(means, np.array([[-0.6310085, -1.262017], [0.25140299, 0.50280599]])):
+    print('Checkpoint passed!')
+else:
+    print('Check your code again.')
+
+
+def compute_covariances(data, resp, counts, means):
+    num_clusters = len(counts)
+    num_dim = len(data[0])
+    num_data = len(data)
+    covariances = [np.zeros((num_dim,num_dim))] * num_clusters
+    
+    for k in range(num_clusters):
+        # Update covariances for cluster k using the M-step update rule for covariance variables.
+        # This will assign the variable covariances[k] to be the estimate for \hat{\Sigma}_k.
+        weighted_sum = np.zeros((num_dim, num_dim))
+        for i in range(num_data):
+            # YOUR CODE HERE (Hint: Use np.outer on the data[i] and this cluster's mean)
+            weighted_sum += resp[i,k] * np.outer(data[i]-means[k], data[i] - means[k])
+        # YOUR CODE HERE
+        covariances[k] = weighted_sum/counts[k]
+
+    return covariances
+
+
+data_tmp = np.array([[1.,2.],[-1.,-2.]])
+resp = compute_responsibilities(data=data_tmp, weights=np.array([0.3, 0.7]),
+                                means=[np.array([0.,0.]), np.array([1.,1.])],
+                                covariances=[np.array([[1.5, 0.],[0.,2.5]]), np.array([[1.,1.],[1.,2.]])])
+counts = compute_soft_counts(resp)
+means = compute_means(data_tmp, resp, counts)
+covariances = compute_covariances(data_tmp, resp, counts, means)
+
+if np.allclose(covariances[0], np.array([[0.60182827, 1.20365655], [1.20365655, 2.4073131]])) and \
+    np.allclose(covariances[1], np.array([[ 0.93679654, 1.87359307], [1.87359307, 3.74718614]])):
+    print('Checkpoint passed!')
+else:
+    print('Check your code again.')
+
+30. EM:
+# SOLUTION
+def EM(data, init_means, init_covariances, init_weights, maxiter=1000, thresh=1e-4):
+    
+    # Make copies of initial parameters, which we will update during each iteration
+    means = init_means[:]
+    covariances = init_covariances[:]
+    weights = init_weights[:]
+    
+    # Infer dimensions of dataset and the number of clusters
+    num_data = len(data)
+    num_dim = len(data[0])
+    num_clusters = len(means)
+    
+    # Initialize some useful variables
+    resp = np.zeros((num_data, num_clusters))
+    ll = loglikelihood(data, weights, means, covariances)
+    ll_trace = [ll]
+    
+    for it in range(maxiter):
+        if it % 5 == 0:
+            print("Iteration %s" % it)
+        
+        # E-step: compute responsibilities
+        resp = compute_responsibilities(data, weights, means, covariances)
+
+        # M-step
+        # Compute the total responsibility assigned to each cluster, which will be useful when 
+        # implementing M-steps below. In the lectures this is called N^{soft}
+        counts = compute_soft_counts(resp)
+        
+        # Update the weight for cluster k using the M-step update rule for the cluster weight, \hat{\pi}_k.
+        # YOUR CODE HERE
+        weights = compute_weights(counts)
+        
+        # Update means for cluster k using the M-step update rule for the mean variables.
+        # This will assign the variable means[k] to be our estimate for \hat{\mu}_k.
+        # YOUR CODE HERE
+        means = compute_means(data, resp, counts)
+        
+        # Update covariances for cluster k using the M-step update rule for covariance variables.
+        # This will assign the variable covariances[k] to be the estimate for \hat{\Sigma}_k.
+        # YOUR CODE HERE
+        covariances = compute_covariances(data, resp, counts, means)
+        
+        # Compute the loglikelihood at this iteration
+        # YOUR CODE HERE
+        ll_latest = loglikelihood(data, weights, means, covariances)
+        ll_trace.append(ll_latest)
+        
+        # Check for convergence in log-likelihood and store
+        if (ll_latest - ll) < thresh and ll_latest > -np.inf:
+            break
+        ll = ll_latest
+    
+    if it % 5 != 0:
+        print("Iteration %s" % it)
+    
+    out = {'weights': weights, 'means': means, 'covs': covariances, 'loglik': ll_trace, 'resp': resp}
+
+    return out
+
+# Model parameters
+init_means = [
+    [5, 0], # mean of cluster 1
+    [1, 1], # mean of cluster 2
+    [0, 5]  # mean of cluster 3
+]
+init_covariances = [
+    [[.5, 0.], [0, .5]], # covariance of cluster 1
+    [[.92, .38], [.38, .91]], # covariance of cluster 2
+    [[.5, 0.], [0, .5]]  # covariance of cluster 3
+]
+init_weights = [1/4., 1/2., 1/4.]  # weights of each cluster
+
+# Generate data
+np.random.seed(4)
+data = generate_MoG_data(100, init_means, init_covariances, init_weights)
+
+
+plt.figure()
+d = np.vstack(data)
+plt.plot(d[:,0], d[:,1],'ko')
+plt.rcParams.update({'font.size':16})
+plt.tight_layout()
+
+np.random.seed(4)
+
+# Initialization of parameters
+chosen = np.random.choice(len(data), 3, replace=False)
+initial_means = [data[x] for x in chosen]
+initial_covs = [np.cov(data, rowvar=0)] * 3
+initial_weights = [1/3.] * 3
+
+# Run EM 
+results = EM(data, initial_means, initial_covs, initial_weights)
+
+
+31. Bivariate normal:
+import matplotlib.mlab as mlab
+
+# provided function to display bivariate normal contours
+def bivariate_normal(X, Y, sigmax=1.0, sigmay=1.0,
+                     mux=0.0, muy=0.0, sigmaxy=0.0):
+
+    
+    Xmu = X-mux
+    Ymu = Y-muy
+
+    rho = sigmaxy/(sigmax*sigmay)
+    z = Xmu**2/sigmax**2 + Ymu**2/sigmay**2 - 2*rho*Xmu*Ymu/(sigmax*sigmay)
+    denominator = 2*np.pi*sigmax*sigmay*np.sqrt(1-rho**2)
+    return np.exp(-z/(2*(1-rho**2))) / denominator
+
+
+def plot_contours(data, means, covs, title):
+    plt.figure()
+    plt.plot([x[0] for x in data], [y[1] for y in data],'ko') # data
+
+    delta = 0.025
+    k = len(means)
+    x = np.arange(-2.0, 7.0, delta)
+    y = np.arange(-2.0, 7.0, delta)
+    X, Y = np.meshgrid(x, y)
+    col = ['green', 'red', 'indigo']
+    for i in range(k):
+        mean = means[i]
+        cov = covs[i]
+        sigmax = np.sqrt(cov[0][0])
+        sigmay = np.sqrt(cov[1][1])
+        sigmaxy = cov[0][1]/(sigmax*sigmay)
+        Z = bivariate_normal(X, Y, sigmax, sigmay, mean[0], mean[1], sigmaxy)
+        plt.contour(X, Y, Z, colors = col[i])
+        plt.title(title)
+    plt.rcParams.update({'font.size':16})
+    plt.tight_layout()
+
+plot_contours(data, initial_means, initial_covs, 'Initial clusters')
+
+# Parameters after running EM to convergence
+results = EM(data, initial_means, initial_covs, initial_weights)
+plot_contours(data, results['means'], results['covs'], 'Final clusters')
+
+results = EM(data, initial_means, initial_covs, initial_weights)
+
+# YOUR CODE HERE
+loglikelihoods = results['loglik']
+plt.plot(range(len(loglikelihoods)), loglikelihoods, linewidth=4)
+plt.xlabel('Iteration')
+plt.ylabel('Log-likelihood')
+plt.rcParams.update({'font.size':16})
+plt.tight_layout()
+
+32. RGB-> RB:
+import colorsys
+def plot_responsibilities_in_RB(img, resp, title):
+    N, K = resp.shape
+    
+    HSV_tuples = [(x*1.0/K, 0.5, 0.9) for x in range(K)]
+    RGB_tuples = list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
+    
+    R = img['red']
+    B = img['blue']
+    resp_by_img_int = [[resp[n][k] for k in range(K)] for n in range(N)]
+    cols = [tuple(np.dot(resp_by_img_int[n], np.array(RGB_tuples))) for n in range(N)]
+
+    plt.figure()
+    for n in range(len(R)):
+        plt.plot(R[n], B[n], 'o', c=cols[n])
+    plt.title(title)
+    plt.xlabel('R value')
+    plt.ylabel('B value')
+    plt.rcParams.update({'font.size':16})
+    plt.tight_layout()
+
+N, K = out['resp'].shape
+random_resp = np.random.dirichlet(np.ones(K), N)
+plot_responsibilities_in_RB(images, random_resp, 'Random responsibilities')
+
+
+out = EM(img_data, init_means, init_covariances, init_weights, maxiter=1)
+plot_responsibilities_in_RB(images, out['resp'], 'After 1 iteration')
+
+out = EM(img_data, init_means, init_covariances, init_weights, maxiter=20)
+plot_responsibilities_in_RB(images, out['resp'], 'After 20 iterations')
+
+
+33. 
+
+weights = out['weights']
+means = out['means']
+covariances = out['covs']
+rgb = images['rgb']
+N = len(images) # number of images
+K = len(means) # number of clusters
+
+assignments = [0]*N
+probs = [0]*N
+
+for i in range(N):
+    # Compute the score of data point i under each Gaussian component:
+    p = np.zeros(K)
+    for k in range(K):
+        p[k] = weights[k]*multivariate_normal.pdf(rgb[i], mean=means[k], cov=covariances[k])
+        
+    # Compute assignments of each data point to a given cluster based on the above scores:
+    assignments[i] = np.argmax(p)
+    
+    # For data point i, store the corresponding score under this cluster assignment:
+    probs[i] = np.max(p)
+
+assignments = turicreate.SFrame({'assignments':assignments, 'probs':probs, 'image': images['image']})
+
+def get_top_images(assignments, cluster, k=5):
+    # YOUR CODE HERE
+    images_in_cluster = assignments[assignments['assignments']== cluster]
+    top_images = images_in_cluster.topk('probs', k)
+    return top_images['image']
+
+for component_id in range(4):
+    get_top_images(assignments, component_id).explore()
+
+
+
+34. Hierarchichal clustering:
+def bipartition(cluster, maxiter=400, num_runs=4, seed=None):
+    '''cluster: should be a dictionary containing the following keys
+                * dataframe: original dataframe
+                * matrix:    same data, in matrix format
+                * centroid:  centroid for this particular cluster'''
+    
+    data_matrix = cluster['matrix']
+    dataframe   = cluster['dataframe']
+    
+    # Run k-means on the data matrix with k=2. We use scikit-learn here to simplify workflow.
+    kmeans_model = KMeans(n_clusters=2, max_iter=maxiter, n_init=num_runs, random_state=seed, n_jobs=1)
+    kmeans_model.fit(data_matrix)
+    centroids, cluster_assignment = kmeans_model.cluster_centers_, kmeans_model.labels_
+    
+    # Divide the data matrix into two parts using the cluster assignments.
+    data_matrix_left_child, data_matrix_right_child = data_matrix[cluster_assignment==0], \
+                                                      data_matrix[cluster_assignment==1]
+    
+    # Divide the dataframe into two parts, again using the cluster assignments.
+    cluster_assignment_sa = turicreate.SArray(cluster_assignment) # minor format conversion
+    dataframe_left_child, dataframe_right_child     = dataframe[cluster_assignment_sa==0], \
+                                                      dataframe[cluster_assignment_sa==1]
+        
+    
+    # Package relevant variables for the child clusters
+    cluster_left_child  = {'matrix': data_matrix_left_child,
+                           'dataframe': dataframe_left_child,
+                           'centroid': centroids[0]}
+    cluster_right_child = {'matrix': data_matrix_right_child,
+                           'dataframe': dataframe_right_child,
+                           'centroid': centroids[1]}
+    
+    return (cluster_left_child, cluster_right_child)
+
+%%time
+wiki_data = {'matrix': tf_idf, 'dataframe': wiki} # no 'centroid' for the root cluster
+left_child, right_child = bipartition(wiki_data, maxiter=100, num_runs=1, seed=0)
+
+def display_single_tf_idf_cluster(cluster, map_index_to_word):
+    '''map_index_to_word: SFrame specifying the mapping betweeen words and column indices'''
+    
+    wiki_subset   = cluster['dataframe']
+    tf_idf_subset = cluster['matrix']
+    centroid      = cluster['centroid']
+    
+    # Print top 5 words with largest TF-IDF weights in the cluster
+    idx = centroid.argsort()[::-1]
+    for i in range(5):
+        print('{0}:{1:.3f}'.format(map_index_to_word['category'], centroid[idx[i]])),
+    print('')
+    
+    # Compute distances from the centroid to all data points in the cluster.
+    distances = pairwise_distances(tf_idf_subset, [centroid], metric='euclidean').flatten()
+    # compute nearest neighbors of the centroid within the cluster.
+    nearest_neighbors = distances.argsort()
+    # For 8 nearest neighbors, print the title as well as first 180 characters of text.
+    # Wrap the text at 80-character mark.
+    for i in range(8):
+        text = ' '.join(wiki_subset[nearest_neighbors[i]]['text'].split(None, 25)[0:25])
+        print('* {0:50s} {1:.5f}\n  {2:s}\n  {3:s}'.format(wiki_subset[nearest_neighbors[i]]['name'],
+              distances[nearest_neighbors[i]], text[:90], text[90:180] if len(text) > 90 else ''))
+    print('')
+
+display_single_tf_idf_cluster(left_child, map_word_to_index)
+
+display_single_tf_idf_cluster(right_child, map_word_to_index)
+
+
+35. Performing athlets & artists cluster:
+non_athletes_artists   = left_child
+athletes_artists       = right_child
+
+left_child_athletes_artists, right_child_athletes_artists = bipartition(athletes_artists, maxiter=100, num_runs=6, seed=1)
+display_single_tf_idf_cluster(left_child_athletes_artists, map_word_to_index)
+
+
+display_single_tf_idf_cluster(right_child_athletes_artists, map_word_to_index)
+
+
+
+athletes    = left_child_athletes_artists
+artists     = right_child_athletes_artists
+
+left_child_athletes, right_child_athletes = bipartition(athletes, maxiter=100, num_runs=6, seed=1)
+
+display_single_tf_idf_cluster(left_child_athletes, map_word_to_index)
+display_single_tf_idf_cluster(right_child_athletes, map_word_to_index)
+
+
+%%time 
+# Bipartition the cluster of non-athletes
+left_child_non_athletes_artists, right_child_non_athletes_artists = bipartition(non_athletes_artists, maxiter=100, num_runs=3, seed=1)
+display_single_tf_idf_cluster(right_child_non_athletes_artists, map_word_to_index)
+
+female_figures = left_child_non_athletes_artists
+politicians_etc = right_child_non_athletes_artists
+
+left_child_non_athlets_artists_females, right_child_non_athlets_artists_females = bipartition(female_figures, maxiter=100, num_runs= 6, seed= 1)
+left_child_non_athlets_artists_politicians_etc, right_child_non_athlets_artists_politicians_etc = bipartition(politicians_etc, maxiter=100, num_runs= 6, seed= 1)
+
+display_single_tf_idf_cluster(left_child_non_athlets_artists_females, map_word_to_index)
+
+
+left_cluster, right_cluster = bipartition(left_child_non_athlets_artists_females, maxiter= 100, num_runs= 6, seed= 1)
+print(display_single_tf_idf_cluster(left_cluster, map_word_to_index))
+print(display_single_tf_idf_cluster(right_cluster,map_word_to_index))
+
+
+display_single_tf_idf_cluster(right_child_non_athlets_artists_females, map_word_to_index)
+left_cluster, right_cluster = bipartition(right_child_non_athlets_artists_females, maxiter= 100, num_runs= 6, seed= 1)
+print(display_single_tf_idf_cluster(left_cluster, map_word_to_index))
+print(display_single_tf_idf_cluster(right_cluster,map_word_to_index))
+
+display_single_tf_idf_cluster(left_child_non_athlets_artists_politicians_etc, map_word_to_index)
+
+left_cluster, right_cluster = bipartition(left_child_non_athlets_artists_politicians_etc, maxiter= 100, num_runs= 6, seed= 1)
+print(display_single_tf_idf_cluster(left_cluster, map_word_to_index))
+print(display_single_tf_idf_cluster(right_cluster,map_word_to_index))
+
+left_cluster, right_cluster = bipartition(right_child_non_athlets_artists_politicians_etc, maxiter= 100, num_runs= 6, seed= 1)
+print(display_single_tf_idf_cluster(left_cluster, map_word_to_index))
+print(display_single_tf_idf_cluster(right_cluster,map_word_to_index))

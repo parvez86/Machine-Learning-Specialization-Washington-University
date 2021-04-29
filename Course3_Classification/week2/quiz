@@ -1,0 +1,79 @@
+Quiz: 
+******************Learning Linear Classifiers***************
+
+1. (True/False) A linear classifier can only learn positive coefficients.
+Ans: False.
+
+2. (True/False) In order to train a logistic regression model, we find the weights that maximize the likelihood of the model.
+Ans: True.
+
+3. (True/False) The data likelihood is the product of the probability of the inputs x given the weights w and response y.
+
+Ans: False.
+
+4. Question 4
+
+Questions 4 and 5 refer to the following scenario.
+
+Consider the setting where our inputs are 1-dimensional. We have data
+x	y
+2.5	+1
+0.3	-1
+2.8	+1
+0.5	+1
+
+and the current estimates of the weights are w0=0 and w1=1. (w0​: the intercept, w1: the weight for xxx).
+
+Calculate the likelihood of this data. Round your answer to 2 decimal places.
+
+Ans: - 0.23
+
+5.Refer to the scenario given in Question 4 to answer the following:
+
+Calculate the derivative of the log likelihood with respect to w1w_1w1​. Round your answer to 2 decimal places.
+Ans: 0.37
+
+6. Question 6
+
+Which of the following is true about gradient ascent? Select all that apply.
+Ans: iterative algorithm, finds maximum by hill climbing.
+
+
+
+
+********************** Overfitting & Regularization in Logistic Regression ******************
+1. Consider four classifiers, whose classification performance is given by the following table:
+
+	Classification error on training set	Classification error on validation set
+Classifier 1		0.2				0.6
+Classifier 2		0.8				0.6
+Classifier 3		0.2				0.2
+Classifier 4		0.5				0.4
+
+ Which of the four classifiers is most likely overfit?
+Ans: classifier 1.
+
+2. Suppose a classifier classifies 23100 examples correctly and 1900 examples incorrectly. Compute accuracy by hand. Round your answer to 3 decimal places.
+Ans: 23100/23500 => 0.924
+
+3. (True/False) Accuracy and error measured on the same dataset always sum to 1.
+Ans: true.
+
+4.  Which of the following is NOT a correct description of complex models?
+Ans: Complex models tend to generalize better than simple models.
+
+5.  Which of the following is a symptom of overfitting in the context of logistic regression? Select all that apply.
+Ans: Large estimated coefficients, complex decission boundary, overconfident predictions of class probabilities.
+
+6. Suppose we perform L2 regularized logistic regression to fit a sentiment classifier. Which of the following plots does NOT describe a possible coefficient path? Choose all that apply.
+
+Note. Assume that the algorithm runs for a wide range of L2 penalty values and each coefficient plot is zoomed out enough to capture all long-term trends.
+Ans: 3,4.
+
+7. Suppose we perform L1 regularized logistic regression to fit a sentiment classifier. Which of the following plots does NOT describe a possible coefficient path? Choose all that apply. 
+
+Note. Assume that the algorithm runs for a wide range of L1 penalty values and each coefficient plot is zoomed out enough to capture all long-term trends.
+Ans: 1, 4.
+
+8. In the context of L2 regularized logistic regression, which of the following occurs as we increase the L2 penalty λ\lambdaλ? Choose all that apply.
+Ans: l2 norm coefficients gets smaller, DB becomes less complex, classifier has lower variance.

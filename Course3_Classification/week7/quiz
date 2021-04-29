@@ -1,0 +1,37 @@
+Week 7:
+
+******************************* Scaling to Huge Datasets & Online Learning ************************
+1. (True/False) Stochastic gradient ascent often requires fewer passes over the dataset than batch gradient ascent to achieve a similar log likelihood.
+Ans: True.
+
+2. (True/False) Choosing a large batch size results in less noisy gradients.
+Ans: True.
+
+3. (True/False) The set of coefficients obtained at the last iteration represents the best coefficients found so far.
+Ans: False.
+
+4. Suppose you obtained the plot of log likelihood below after running stochastic gradient ascent.
+Ans: decrease step size.
+
+5. Suppose you obtained the plot of log likelihood below after running stochastic gradient ascent.
+Ans: increase step size.
+
+6. Suppose it takes about 1 milliseconds to compute a gradient for a single example. You run an online advertising company and would like to do online learning via mini-batch stochastic gradient ascent. If you aim to update the coefficients once every 5 minutes, how many examples can you cover in each update? Overhead and other operations take up 2 minutes, so you only have 3 minutes for the coefficient update.
+Ans: 180000.(1ms * 1000 * 3* 60) 
+
+7. In search for an optimal step size, you experiment with multiple step sizes and obtain the following convergence plot.
+Ans: 3,5.
+
+11. Which line corresponds to step sizes that are smaller than the best? Select all that apply.
+Ans: 2,4.
+
+8. Suppose you run stochastic gradient ascent with two different batch sizes. Which of the two lines below corresponds to the smaller batch size (assuming both use the same step size)?
+Ans: 1. (smaller batch have larger oscillation)
+
+9. Which of the following is NOT a benefit of stochastic gradient ascent over batch gradient ascent? Choose all that apply.
+Ans: log likelihood data improves monotically, SGA is hoghly robust to parameter choices.
+
+10.  Suppose we run the stochastic gradient ascent algorithm described in the lecture with batch size of 100. To make 10 passes over a dataset consisting of 15400 examples, how many iterations does it need to run?
+Ans: 1000.
+5400.
+54000.
