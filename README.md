@@ -1,1 +1,1 @@
-# Machine-Learning-Washington-University
+# Machine-Learning-Specialization: Washington-University
